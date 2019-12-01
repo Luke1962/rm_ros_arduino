@@ -1,0 +1,34 @@
+# For a direct USB cable connection, the port name is typically
+# /dev/ttyACM# where is # is a number such as 0, 1, 2, etc
+# For a wireless connection like XBee, the port is typically
+# /dev/ttyUSB# where # is a number such as 0, 1, 2, etc.
+
+
+
+# === Sensor definitions.  Examples only - edit for your robot.
+#     Sensor type can be one of the follow (case sensitive!):
+#	  * Ping
+#	  * GP2D12
+#	  * Analog
+#	  * Digital
+#	  * PololuMotorCurrent
+#	  * PhidgetsVoltage
+#	  * PhidgetsCurrent (20 Amp, DC)
+
+
+
+sensors: {
+  #motor_current_left:   {pin: 0, type: PololuMotorCurrent, rate: 5},
+  #motor_current_right:  {pin: 1, type: PololuMotorCurrent, rate: 5},
+  #ir_front_center:      {pin: 2, type: GP2D12, rate: 10},
+  #sonar_front_center:   {pin: 5, type: Ping, rate: 10},
+  faretto:                {pin: 12, type: Digital, rate: 10, direction: output},
+  #arduino_led_r:          {pin: 30, type: Digital, rate: 2, direction: output},
+  #arduino_led_g:          {pin: 31, type: Digital, rate: 2, direction: output},
+  #arduino_led_b:          {pin: 32, type: Digital, rate: 2, direction: output},
+  
+  pir:                {pin: 33, type: Digital, rate: 10, direction: input},
+  pir1:               {pin: 34, type: Digital, rate: 10, direction: input},
+  servo_raspicam:     {pin: 1, type: Servo, rate: 10, direction: output}
+
+}

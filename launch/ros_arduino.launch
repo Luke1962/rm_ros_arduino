@@ -1,0 +1,35 @@
+<launch>
+
+
+   <node name="ros_arduino" pkg="rm_ros_arduino" type="ros_arduino_node"   output="screen">
+      	<param name="rate" value="10" />
+
+      	<param name="rate_sensors" value="1" />
+<!--      	
+ 		<param name="serial_port" value="/dev/ttyUSB0" />
+-->       	
+		<param name="serial_port" value="/dev/ttyACM1" />
+       	<param name="serial_speed" value="115200" />
+
+       	<param name="wheel_track" value="0.35" />
+		<param name="wheel_diameter" value="0.118" />
+		<param name="encoder_resolution" value="800" />
+
+		<!-- rapporto tra la ruota grande da 118mm la ruota motore da 19mm-->
+		<param name="gear_reduction" value="6.210" />
+		
+		<param name="motors_reversed" value="False" />
+<!--	 === PID parameters ===	
+
+-->
+		<param name="Kp" value="1" />
+		<param name="Kd" value="1" />
+		<param name="Ko" value="0" />
+		<param name="accel_limit" value="1.0" />
+
+<!-- 		
+	<param name="config_file" value="/home/luca/ros/src/rm_ros_arduino/cfg/ros_arduino.yaml" />
+    <rosparam file="$(find rm_ros_arduino)/cfg/ros_arduino.yaml" command="load" />
+ -->
+   </node>
+</launch>
