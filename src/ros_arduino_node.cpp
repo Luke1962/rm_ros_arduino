@@ -101,10 +101,9 @@ serial::Serial ser;
 ///  
 /// ///////////////////////////////////////////////////////////////////
 /// ///////////////////////////////////////////////////////////////////
-	#define dbgf(...) ROS_DEBUG(__VA_ARGS__)
+	#define dbgf(...) ROS_INFO(__VA_ARGS__)
 	# define ROS_NOW  ros::Time::now(); /*Arduino IDE: millis();*/
-
-
+#define SLEEP_MS(ms) std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 
 template <typename T>
 int sgn(T val) { return (T(0) < val) - (val < T(0)); }
@@ -115,6 +114,15 @@ float remap(float value, float istart, float istop, float ostart, float ostop)
 	return ostart + (ostop - ostart) * ((value - istart) / (istop - istart));
 }
 
+
+
+
+
+//######################################################
+//######################################################
+// COMANDI VERSO ARDUINO SU SERIALE CON ATTESA ACK
+//######################################################
+//######################################################
 
 
 //######################################################
@@ -131,6 +139,7 @@ bool initSerial(string serial_port, string serial_speed){
 		serial::Timeout to = serial::Timeout::simpleTimeout(1000);
 		ser.setTimeout(to);
 		ser.open();
+
 	}
 	catch (serial::IOException &e)
 	{
@@ -141,6 +150,7 @@ bool initSerial(string serial_port, string serial_speed){
 	if (ser.isOpen())
 	{
 		ROS_INFO_STREAM("Serial Port initialized");
+		//ser.println('O');
 		return true;
 	}
 	else
@@ -150,23 +160,19 @@ bool initSerial(string serial_port, string serial_speed){
 }
 
 
-
-
-//######################################################
-//######################################################
-// COMANDI VERSO ARDUINO SU SERIALE CON ATTESA ACK
-//######################################################
-//######################################################
 //#define MAX_ARDUINO_PIN 50
 #define DEFAULT_RX_TIMEOUT_SEC 0.010f
 #define MAX_RX_RETRIES 3
 #define MAX_TX_RETRIES 2
 
+//http://wjwwood.io/serial/doc/1.1.0/index.html
+
+//http://wjwwood.io/serial/doc/1.1.0/classserial_1_1_serial.html#a010b18ec545dfe1a7bb1c95be4bdaa54
 std::string rx_string(float timeout_sec = DEFAULT_RX_TIMEOUT_SEC){
 	std::string result;
-
-	result = ser.readline();
-	dbgf("\nRX<--:%s", result.c_str());
+	
+	result = ser.readline(1000, "\r" );
+	dbgf("RX<--:%s", result.c_str());
 	return result;
 	/*			
 		//ser.flushInput();
@@ -189,26 +195,40 @@ std::string rx_string(float timeout_sec = DEFAULT_RX_TIMEOUT_SEC){
 
 	*/
 }
+//attende l'arrivo di uno specifico carattere
+bool waitChar(char expectedChar ,float timeout_sec = DEFAULT_RX_TIMEOUT_SEC )
+{
+	//bool blArrived = false;
+	//while (!ser.available()){  SLEEP_MS(100); }
+		
+	std::string input = rx_string(timeout_sec);
+		
+	return 	(input[0]==expectedChar)	;
 
+ 	
+}
 
 bool wait_ack(float timeout_sec = DEFAULT_RX_TIMEOUT_SEC)
 {
 	std::string ack = rx_string(timeout_sec);
 	//if (ack.compare("OK\r") == 1)	{
 		if ((ack[0]=='O') && (ack[1]=='K')){
-		dbgf("\nACK");return true; 
-		
+		dbgf("\nACK");
+		return true; 		
 		}
 	else{
 		return false;	
 		}
 }
+
+//http://wjwwood.io/serial/doc/1.1.0/classserial_1_1_serial.html#aa020880cdff3a370ddc574f594379c3c
 inline bool tx(std::string cmd)
 {
 	ser.flushOutput();
 	cmd += "\r";	
 	ser.write(cmd.c_str());
-	dbgf("\n-->TX: %s",cmd.c_str() );
+	ser.flushInput();
+	dbgf("-->TX: %s",cmd.c_str() );
 }
 bool tx_ack(std::string cmd)
 {
@@ -288,6 +308,7 @@ private:
 
 	// Parametri
 	float rate_sensors;
+	float rate_encoders;
 	float wheel_diameter;
 	float wheel_track;
 	float encoder_resolution;
@@ -322,7 +343,7 @@ private:
 			void cbk1(const std_msgs::String::ConstPtr &msg,
 					const std::string &topic);
 	******************************************************************** */
-
+	void sync();
 };
 
 
@@ -403,7 +424,7 @@ void Ros_arduino::cbk_faretto(const std_msgs::Bool msg){
 						+(string)PIN_FARETTO
 						+(string)CMD_SEPARATOR
 						+(string)strValue;
-	dbgf("\nCBK Faretto");
+	//dbgf("\nCBK Faretto");
 	mtx_serial.lock();
 	tx_ack(cmd);
 	mtx_serial.unlock();
@@ -448,7 +469,7 @@ void Ros_arduino::cbk_cmdvel(geometry_msgs::Twist cmdvel) {
 		+ std::to_string(right_revs_per_second);
 
 	// ROS_INFO_THROTTLE(1.0, cmd);
-	dbgf("\nCBK cmd_vel");
+	//dbgf("\nCBK cmd_vel");
 	mtx_serial.lock();
 	tx_ack(cmd);
 	mtx_serial.unlock();
@@ -474,18 +495,23 @@ void Ros_arduino::getAnPublishEncoders(){
 	std::string::size_type sz;
 
 	msg_encoders.header.stamp = ros::Time::now();
-	try
+	if (strCallback !="")
 	{
-		msg_encoders.vector.x =(float)  stoi(strCallback , &sz);
+		try
+		{
+			msg_encoders.vector.x =(float)  stoi(strCallback , &sz);
+			
+			msg_encoders.vector.y =  (float)stoi(strCallback.substr(sz), &sz );
+			
+		}
+		catch(const std::exception& e)
+		{
+			std::cerr<< "Enc Excep. ["<<strCallback<<"]\n";
+		}
 		
-		msg_encoders.vector.y =  (float)stoi(strCallback.substr(sz), &sz );
-		
-	}
-	catch(const std::exception& e)
-	{
-		std::cerr<< "Encoders Exception ["<<strCallback<<"]" << e.what() << '\n';
 	}
 	
+
 
 	pub_encoders.publish(msg_encoders);
 
@@ -554,17 +580,17 @@ void Ros_arduino::getAndPublishPir1(){
 // SERVO
 //--------------------------------------------------------
 
-#define PIN_SERVO_RASPICAM "9"
+#define SERVO_RASPICAM "1"
 void Ros_arduino::cbk_servo_raspicam(std_msgs::Int16 msg){
 
 	string strValue = std::to_string( msg.data);
 
 	const string cmd=  (string)CMD_SERVO_WRITE
 						+(string)CMD_SEPARATOR  
-						+(string)PIN_SERVO_RASPICAM
+						+(string)SERVO_RASPICAM
 						+(string)CMD_SEPARATOR
 						+(string)strValue;
-	dbgf("\nCBK Servo Raspicam %s",strValue.c_str() );
+	//dbgf("\nCBK Servo Raspicam %s",strValue.c_str() );
 	mtx_serial.lock();
 	tx_ack(cmd);
 	mtx_serial.unlock();
@@ -580,7 +606,19 @@ void Ros_arduino::getAndPublishDigitalInput(){
 	getAndPublishPir1();
 }
 
-
+void Ros_arduino::sync(){
+		ROS_INFO_STREAM("\nWaiting OK from Arduino....");
+		bool blSync = false;
+		while (!blSync)
+		{
+	 		tx("@\r");
+			blSync = waitChar('@'); /* code for loop body */
+			 
+			SLEEP_MS(100);
+		}
+		SLEEP_MS(1000);
+		ROS_INFO_STREAM("\nSYNCHRONIZED WITH Arduino....");
+}
 ////////////////////////////////////////////////////////////////////////////////////
 // Costruttore
 Ros_arduino::Ros_arduino(ros::NodeHandle &nh)
@@ -593,6 +631,8 @@ Ros_arduino::Ros_arduino(ros::NodeHandle &nh)
 	// Leggo i parametri (launch file)
 	//-----------------------------------------------------------------
 	nh.param<float>("rate", par_rate, 10);
+	nh.param<float>("rate_encoders", rate_encoders, 10);
+	nh.param<float>("rate_sensors", rate_sensors, 1);
 	nh.param<std::string>("serial_port", serial_port, "/dev/tty/ACM0");
 	nh.param<std::string>("serial_speed", serial_speed, "115200");
 	nh.param<float>("wheel_diameter", wheel_diameter, 1);
@@ -604,6 +644,8 @@ Ros_arduino::Ros_arduino(ros::NodeHandle &nh)
 	nh.param<float>("rate_sensors", rate_sensors, 10);
 	ros::Duration  interval_sensors = ros::Duration( 1/rate_sensors);
 	ros::Time nex_time_sensors  = ros::Time::now() ;
+	ros::Duration  interval_encoders = ros::Duration( 1/rate_encoders);
+	ros::Time nex_time_encoders  = ros::Time::now() ;
 	/*
 
 			//-----------------------------------------------------------------
@@ -713,6 +755,9 @@ Ros_arduino::Ros_arduino(ros::NodeHandle &nh)
 	if (initSerial(serial_port,serial_speed))
 	{
 
+		sleep(6);
+		//sync();
+
 		ros::Rate rate(par_rate);
 
 		////////////////////////////////////////////////////////////////////////////////////
@@ -720,8 +765,12 @@ Ros_arduino::Ros_arduino(ros::NodeHandle &nh)
 		////////////////////////////////////////////////////////////////////////////////////
 		while (ros::ok())
 		{
-			getAnPublishEncoders();
-/* 
+			if (ros::Time::now() > nex_time_encoders )
+			{			
+				getAnPublishEncoders();
+				nex_time_encoders  = ros::Time::now() + interval_encoders;
+
+			}
 			if (ros::Time::now() > nex_time_sensors )
 			{
 				getAndPublishDigitalInput();
@@ -729,7 +778,7 @@ Ros_arduino::Ros_arduino(ros::NodeHandle &nh)
 				nex_time_sensors  = ros::Time::now() + interval_sensors;
 
 			}
- */
+
 			//ROS_INFO_THROTTLE(5, "running");
 
 			ros::spinOnce(); // gestisce i callback
