@@ -1,0 +1,13 @@
+<package>
+  <name>rm_arduino_firmware</name>
+  <version>0.2.0</version>
+  <description>
+    ROS Arduino Firmware.
+  </description>
+  <author>Luca Cesarini</author>
+  <maintainer email="lcesarini1962@gmail.com">Luca Cesarini</maintainer>
+  <license>BSD</license>
+  <url></url>
+  
+  <buildtool_depend>catkin</buildtool_depend>
+</package>

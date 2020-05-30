@@ -669,10 +669,7 @@ void Ros_arduino::cbk_laser(const std_msgs::Bool msg){
 void Ros_arduino::cbk_cmdvel(geometry_msgs::Twist cmdvel) {
 	std::string cmd;
 	
-	if (
-		(bumpers== 0) & ( ( cmdvel.linear.x !=0.0f )||(cmdvel.angular.z!=0.0f) ) || // no bumpers e comando <> 0
-		(bumpers!= 0) & ( ( cmdvel.linear.x < 0.0f ) ) // ho urtato ma il comando è di retrocedere
-		)
+	if (  (bumpers== 0) || ( (cmdvel.linear.x ==0.0f) & (cmdvel.angular.z==0.0f) ) )
 	{
 		float x = cmdvel.linear.x;
 		float th = cmdvel.angular.z;
@@ -680,17 +677,17 @@ void Ros_arduino::cbk_cmdvel(geometry_msgs::Twist cmdvel) {
 		float right;
 
 		if (x == 0.0f) {
-		// Turn in place
-		right = th * wheel_track / 2.0;
-		left = -right;
+			// Turn in place
+			right = th * wheel_track / 2.0;
+			left = -right;
 		} else if (th == 0.0f) {
-		// Pure forward/backward motion
-		left = x;
-		right = x;
+			// Pure forward/backward motion
+			left = x;
+			right = x;
 		} else {
-		// Translation + Rotation
-		left = x - th * wheel_track / 2.0;
-		right = x + th * wheel_track / 2.0;
+			// Translation + Rotation
+			left = x - th * wheel_track / 2.0;
+			right = x + th * wheel_track / 2.0;
 		}
 
 		// ------------------------
@@ -939,7 +936,6 @@ void Ros_arduino::servo_raspicam(int16_t angle){
 void Ros_arduino::cbk_servo_raspicam(std_msgs::Int16 msg){
 
 	servo_raspicam(msg.data);
-	printf ("SERVO CAMERA: %d",msg.data );
 }
 
 
@@ -1273,7 +1269,7 @@ Ros_arduino::Ros_arduino(ros::NodeHandle &nh)
 
 			}
 			ros::spinOnce(); // gestisce i callback
-			rate.sleep();
+			//rate.sleep();
 		}
 
 	}
